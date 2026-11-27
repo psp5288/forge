@@ -488,8 +488,10 @@ fn crash_two_thousand() {
         *hits.entry(point).or_insert(0) += 1;
     }
     for point in Failpoint::CRASH_SUITE {
-        assert!(hits.get(point.as_str()).copied().unwrap_or(0) > 0);
+        let n = hits.get(point.as_str()).copied().unwrap_or(0);
+        assert!(n > 0, "failpoint {} was not hit: {hits:?}", point.as_str());
     }
+    eprintln!("crash_two_thousand hits: {hits:?} failures: 0 runs: 2000");
 }
 
 #[cfg(target_os = "macos")]

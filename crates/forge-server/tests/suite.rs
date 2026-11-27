@@ -7,7 +7,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use forge_core::{fullfsync_calls, Clock, Disk, Gate, ManualClock};
+use forge_core::{Clock, Disk, Gate, ManualClock};
+#[cfg(target_os = "macos")]
+use forge_core::fullfsync_calls;
 use forge_server::{spawn, Config};
 
 static N: AtomicU64 = AtomicU64::new(0);
@@ -81,7 +83,18 @@ fn connect_tiny_recv(port: u16) -> TcpStream {
         unreachable!();
     };
     let mut raw: libc::sockaddr_in = unsafe { std::mem::zeroed() };
-    raw.sin_len = std::mem::size_of::<libc::sockaddr_in>() as u8;
+    // BSD sockaddr_in has sin_len. Linux does not.
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "dragonfly"
+    ))]
+    {
+        raw.sin_len = std::mem::size_of::<libc::sockaddr_in>() as u8;
+    }
     raw.sin_family = libc::AF_INET as libc::sa_family_t;
     raw.sin_port = v4.port().to_be();
     raw.sin_addr = libc::in_addr {
@@ -537,6 +550,7 @@ fn parsers_do_not_panic_on_short_or_random_input() {
     assert_eq!(command(port, &[b"PING"]), "+PONG\r\n");
 }
 
+#[cfg(target_os = "macos")]
 #[test]
 fn macos_server_uses_fullfsync() {
     let before = fullfsync_calls();
