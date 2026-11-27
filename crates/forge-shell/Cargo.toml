@@ -1,0 +1,14 @@
+[package]
+name = "forge-shell"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "forge-shell"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+forge-server = { path = "../forge-server" }

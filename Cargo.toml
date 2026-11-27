@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/forge-core",
+    "crates/forge-server",
+    "crates/forge-shell",
+]
+
+[profile.release]
+# Keep symbols so a profiler can name frames. Benchmarks use this profile.
+debug = 1

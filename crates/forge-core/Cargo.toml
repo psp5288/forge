@@ -1,0 +1,10 @@
+[package]
+name = "forge-core"
+version = "0.1.0"
+edition = "2021"
+description = "Forge LSM storage engine. No network."
+license = "MIT"
+
+[dependencies]
+crc32fast = "1.4"
+libc = "0.2"
