@@ -24,7 +24,7 @@ flowchart LR
   dur --> compact[compaction]
 ```
 
-`mio` uses kqueue on macOS and epoll on Linux. This machine ran the kqueue build. epoll was not run.
+`mio` uses kqueue on macOS and epoll on Linux. The macOS run used kqueue. On Linux 6.12.113+ (x86_64), at commit `75310f6d8f94f37a54381f75f7b7ba8345126b00`, the server process held an `anon_inode:[eventpoll]` and the integration tests passed on that backend.
 
 The durability thread appends a group of records, calls `F_FULLFSYNC` once, then wakes the event loop. The loop applies the group and sends the replies in the order the commands arrived. A read that follows an unacked write on the same connection waits. A read with no earlier unacked write does not.
 
@@ -54,7 +54,7 @@ HTTP/1.1, with no framework: `GET /health`, `GET /metrics`, `GET /key/<percent-e
 cargo test --workspace
 ```
 
-`cargo test` on this Mac runs the 50-seed crash suite plus a few fresh seeds. The 2,000-run suite is compiled only on Linux, ignored unless `FORGE_FULL_CRASH=1`, and was not run here.
+`cargo test` on macOS runs the 50-seed crash suite plus a few fresh seeds. The 2,000-run suite is compiled only on Linux and ignored unless `FORGE_FULL_CRASH=1`. Commit `75310f6d8f94f37a54381f75f7b7ba8345126b00` ran it on Linux: 2000 passes, 0 failures.
 
 ```sh
 cargo run -p forge-server --release -- --data /tmp/forge-data --redis 127.0.0.1:6379 --http 127.0.0.1:8080
@@ -87,13 +87,16 @@ The same process, after run 1, then ran:
 
 ## Conclusion
 
+Acknowledged writes survived 2000 randomized crash tests on commit `75310f6d8f94f37a54381f75f7b7ba8345126b00`, with zero failures.
+Unsynced writes were dropped in the fsync simulation, and no acknowledged write was unsynced, on commit `75310f6d8f94f37a54381f75f7b7ba8345126b00`.
+No observed value was absent from the recovered history on commit `75310f6d8f94f37a54381f75f7b7ba8345126b00`.
 Unsynced writes were dropped in the fsync simulation, and no acknowledged write was unsynced, on commit `cfddf591219ae3aaad28e4176d4aa95ddc9490f2`.
 No observed value was absent from the recovered history on commit `cfddf591219ae3aaad28e4176d4aa95ddc9490f2`.
 Implements a subset of RESP2: `GET`, `SET`, `DEL`, `EXPIRE`, `TTL`, `PING`, `SCAN`.
 Sustained 2033.90 ops/sec for 1.48 seconds after a 400-request warm-up, p99 9.495 ms, on an Apple M5, Darwin 27.0.0, APFS, with fsync-before-ack and pipeline depth 1. 16 clients, 32-byte values, `SET` only. An earlier pass on a fresh directory was 2354.79 ops/sec for 1.27 seconds, p99 9.871 ms.
 Sustained 28571.43 ops/sec for 0.70 seconds, p99 12.911 ms, on the same machine, with fsync-before-ack and pipeline depth 16. 16 clients, 32-byte values, `SET` only, after the pipeline-depth 1 run and an 8000-request `GET` on that process.
 Detects torn and corrupted WAL records using checksums (9 scripted fault cases: torn WAL tail, WAL bit flip, SSTable bit flip, dropped newest manifest, half-written SSTable, `fsync` error, disk full, short write, crash after the new WAL file and before the manifest).
-Tested on kqueue (macOS, `F_FULLFSYNC`). The 2000-run suite is Linux-only and was not run. epoll was not run.
+Tested on kqueue (macOS, `F_FULLFSYNC`) and epoll (Linux 6.12.113+, x86_64). The 2000-run suite ran on Linux on commit `75310f6d8f94f37a54381f75f7b7ba8345126b00`.
 
 `sample` on the durability thread put 1065 of 1291 samples in `F_FULLFSYNC`. That is the bottleneck. The span-list edit did not hold a lower p95 across the two fresh `SET` runs above, so this note does not claim a latency reduction.
 
